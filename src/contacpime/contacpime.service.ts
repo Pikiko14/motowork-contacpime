@@ -42,7 +42,11 @@ export class ContacpimeService {
       }
 
       if (productData?.respuesta && productData?.respuesta?.datos) {
-        return productData?.respuesta?.datos.shift();
+        return {
+          success: true,
+          message: 'Información del producto en contacpime',
+          data: productData?.respuesta?.datos.shift()
+        };
       } else {
         throw new NotFoundException('No se encontraron datos para el producto en contacpime');
       }
