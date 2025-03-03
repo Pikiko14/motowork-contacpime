@@ -1,21 +1,20 @@
 import {
   Controller,
   Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
+  UseGuards,
+  Query,
 } from '@nestjs/common';
 import { ContacpimeService } from './contacpime.service';
 import { GetProductDto } from './dto/get-contacpime.dto';
+import { HostGuard } from 'src/commons/guards/host.guard';
 
 @Controller('contacpime')
 export class ContacpimeController {
   constructor(private readonly contacpimeService: ContacpimeService) {}
 
   @Get()
-  create(@Body() getProdyctDto: GetProductDto) {
-    return this.contacpimeService.create(getProdyctDto);
+  @UseGuards(HostGuard)
+  create(@Query() getProdyctDto: GetProductDto) {
+    return this.contacpimeService.getProduct(getProdyctDto);
   }
 }
