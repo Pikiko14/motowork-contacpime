@@ -6,4 +6,8 @@ export class GetProductDto {
   @IsNotEmpty()
   @Type(() => String)
   productCode: string;
+
+  @IsString()
+  @Type(() => String)
+  variantsSkuArr: string;
 }

@@ -25,17 +25,41 @@ export class ContacpimeService {
         keyagente = await this.doLogin();
       }
 
+      // validate if have variants
+      const arrCodes = getProductDto.variantsSkuArr.split(', ');
+
       // get product data
       const requestUrl = `${envs.url_contacpime}/
       TInventarios/GetSaldoFisicoProductoEnBodegas/
       {"irecurso":"${getProductDto.productCode}"}/${keyagente}/${envs.app_id_contacpime}`;
       const data = await this.doRequest(requestUrl)
       
+      // get variants data
+      let variantsData = null;
+      if (arrCodes && arrCodes.length > 0) {
+        const requests = arrCodes.map(code => {
+          const variantRequestUrl = `${envs.url_contacpime}/
+            TInventarios/GetSaldoFisicoProductoEnBodegas/
+            {"irecurso":"${code}"}/${keyagente}/${envs.app_id_contacpime}`;
+            
+          return this.doRequest(variantRequestUrl);
+        });
+      
+        variantsData = await Promise.all(requests);
+      }
+      
       // valdiate response
       let productData = null;
       if (data?.result) {
-        productData = data.result.shift()
+        productData = data.result.shift();
       }
+
+      // validate variant data
+      variantsData = variantsData.map((el) => {
+        const result = el?.result?.shift();
+        const response = result?.respuesta;
+        return response?.datos?.shift();
+      });
 
       if (!productData) {
         throw new NotFoundException('No existe el producto en contacpime');
@@ -45,7 +69,10 @@ export class ContacpimeService {
         return {
           success: true,
           message: 'Información del producto en contacpime',
-          data: productData?.respuesta?.datos.shift()
+          data: {
+            product: productData?.respuesta?.datos.shift(),
+            variants: variantsData,
+          }
         };
       } else {
         throw new NotFoundException('No se encontraron datos para el producto en contacpime');
