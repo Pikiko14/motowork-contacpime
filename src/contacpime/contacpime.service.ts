@@ -163,7 +163,7 @@ export class ContacpimeService {
           // load quantity and prices
           for (let i = 0; i < products.length; i++) {
             // validate status active
-            if (parseInt(products[i].msaldo as string) > 0) {
+            if (parseInt(products[i].msaldo as string) === 0) {
               products[i].active = false;
             }
 
@@ -190,8 +190,8 @@ export class ContacpimeService {
         }
       }
 
-      // validamos la recursividad
-      if (this.page < 2) { // this.totalPages
+      // validamos la recursividad cambiar por this.totalpages.
+      if (this.page < 1) { // this.totalPages
         // send to product ms de tyhis products
         if (this.products.length > 0) {
           this.logger.log(`Enviando la pagina ${this.page} a MS de productos`);
