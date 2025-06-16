@@ -129,7 +129,7 @@ export class ContacpimeService {
 
       const dataJSON = {
         datospagina: {
-          cantidadregistros: '100',
+          cantidadregistros: '500',
           pagina: `${this.page}`,
         },
         datosfiltro: {},
@@ -198,7 +198,6 @@ export class ContacpimeService {
           await this.productHttpService.sendProduct(this.products);
           this.products = [];
         }
-
         
         // enable this this.totalPages
         this.page++;
