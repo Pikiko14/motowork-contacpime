@@ -129,7 +129,7 @@ export class ContacpimeService {
 
       const dataJSON = {
         datospagina: {
-          cantidadregistros: '500',
+          cantidadregistros: '100',
           pagina: `${this.page}`,
         },
         datosfiltro: {},
