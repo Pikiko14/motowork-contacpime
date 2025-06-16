@@ -9,6 +9,7 @@ import { GetProductDto } from './dto/get-contacpime.dto';
 import { prepareProduct } from './helpers/products.helper';
 import { IProductMotowork } from './interfaces/products.interface';
 import { CacheService } from 'src/cache/services/cache.service.service';
+import { ProductClientService } from 'src/commons/products/products.service';
 
 @Injectable()
 export class ContacpimeService {
@@ -17,7 +18,10 @@ export class ContacpimeService {
   totalPages: number = 0;
   products: IProductMotowork[] = [];
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(
+    private readonly cacheService: CacheService,
+    private readonly productHttpService: ProductClientService,
+  ) {}
 
   // get product from contacpime
   async getProductInventory(getProductDto: GetProductDto): Promise<any> {
@@ -125,7 +129,7 @@ export class ContacpimeService {
 
       const dataJSON = {
         datospagina: {
-          cantidadregistros: '300',
+          cantidadregistros: '100',
           pagina: `${this.page}`,
         },
         datosfiltro: {},
@@ -187,11 +191,26 @@ export class ContacpimeService {
       }
 
       // validamos la recursividad
-      if (this.page < 1) { // this.totalPages
+      if (this.page < 2) { // this.totalPages
+        // send to product ms de tyhis products
+        if (this.products.length > 0) {
+          this.logger.log(`Enviando la pagina ${this.page} a MS de productos`);
+          await this.productHttpService.sendProduct(this.products);
+          this.products = [];
+        }
+
+        
         // enable this this.totalPages
         this.page++;
+
+        // call recursivity
         return this.loadInventoryProducts();
       }
+
+      // send if is last page
+      this.logger.log(`Enviando la pagina ${this.page} a MS de productos`);
+      await this.productHttpService.sendProduct(this.products);
+      this.products = [];
 
       // reset counters
       this.page = 1;
