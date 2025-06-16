@@ -191,7 +191,7 @@ export class ContacpimeService {
       }
 
       // validamos la recursividad cambiar por this.totalpages.
-      if (this.page < 1) { // this.totalPages
+      if (this.page < this.totalPages) { // this.totalPages
         // send to product ms de tyhis products
         if (this.products.length > 0) {
           this.logger.log(`Enviando la pagina ${this.page} a MS de productos`);
