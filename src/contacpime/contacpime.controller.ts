@@ -14,7 +14,13 @@ export class ContacpimeController {
 
   @Get()
   @UseGuards(HostGuard)
-  create(@Query() getProdyctDto: GetProductDto) {
-    return this.contacpimeService.getProduct(getProdyctDto);
+  getProduct(@Query() getProdyctDto: GetProductDto) {
+    return this.contacpimeService.getProductInventory(getProdyctDto);
+  }
+
+  @Get('load-inventory')
+  @UseGuards(HostGuard)
+  loadInventoryProducts() {
+    return this.contacpimeService.loadInventoryProducts();
   }
 }

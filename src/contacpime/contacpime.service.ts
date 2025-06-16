@@ -4,57 +4,50 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { GetProductDto } from './dto/get-contacpime.dto';
-import { CacheService } from 'src/cache/services/cache.service.service';
 import { envs } from 'src/config';
+import { GetProductDto } from './dto/get-contacpime.dto';
+import { prepareProduct } from './helpers/products.helper';
+import { IProductMotowork } from './interfaces/products.interface';
+import { CacheService } from 'src/cache/services/cache.service.service';
 
 @Injectable()
 export class ContacpimeService {
-  logger = new Logger();
+  logger = new Logger(ContacpimeService.name);
+  page: number = 1;
+  totalPages: number = 0;
+  products: IProductMotowork[] = [];
 
   constructor(private readonly cacheService: CacheService) {}
 
-  // get product from contact pyme
-  async getProduct(getProductDto: GetProductDto): Promise<any> {
+  // get product from contacpime
+  async getProductInventory(getProductDto: GetProductDto): Promise<any> {
     try {
-      // get from cache keyagent
       let keyagente = await this.cacheService.getCache('keyagente');
 
-      // validate key agent
       if (!keyagente) {
         keyagente = await this.doLogin();
       }
 
-      // validate if have variants
       const arrCodes = getProductDto.variantsSkuArr.split(', ');
 
-      // get product data
-      const requestUrl = `${envs.url_contacpime}/
-      TInventarios/GetSaldoFisicoProductoEnBodegas/
-      {"irecurso":"${getProductDto.productCode}"}/${keyagente}/${envs.app_id_contacpime}`;
-      const data = await this.doRequest(requestUrl)
-      
-      // get variants data
+      const requestUrl = `${envs.url_contacpime}/TInventarios/GetSaldoFisicoProductoEnBodegas/{"irecurso":"${getProductDto.productCode}"}/${keyagente}/${envs.app_id_contacpime}`;
+      const data = await this.doRequest(requestUrl);
+
       let variantsData = null;
       if (arrCodes && arrCodes.length > 0) {
-        const requests = arrCodes.map(code => {
-          const variantRequestUrl = `${envs.url_contacpime}/
-            TInventarios/GetSaldoFisicoProductoEnBodegas/
-            {"irecurso":"${code}"}/${keyagente}/${envs.app_id_contacpime}`;
-            
+        const requests = arrCodes.map((code) => {
+          const variantRequestUrl = `${envs.url_contacpime}/TInventarios/GetSaldoFisicoProductoEnBodegas/{"irecurso":"${code}"}/${keyagente}/${envs.app_id_contacpime}`;
           return this.doRequest(variantRequestUrl);
         });
-      
+
         variantsData = await Promise.all(requests);
       }
-      
-      // valdiate response
+
       let productData = null;
       if (data?.result) {
         productData = data.result.shift();
       }
 
-      // validate variant data
       variantsData = variantsData.map((el) => {
         const result = el?.result?.shift();
         const response = result?.respuesta;
@@ -72,10 +65,12 @@ export class ContacpimeService {
           data: {
             product: productData?.respuesta?.datos.shift(),
             variants: variantsData,
-          }
+          },
         };
       } else {
-        throw new NotFoundException('No se encontraron datos para el producto en contacpime');
+        throw new NotFoundException(
+          'No se encontraron datos para el producto en contacpime',
+        );
       }
     } catch (error) {
       throw new InternalServerErrorException(error.message);
@@ -83,19 +78,16 @@ export class ContacpimeService {
   }
 
   /**
-   * Do login on contactpime
+   * Do login on contacpime
    */
   async doLogin(): Promise<string> {
     try {
-      // do login on contacpime
-      const requestUrl = `${envs.url_contacpime}/
-      TBasicoGeneral/GetAuth/
-      {"email":"${envs.user_contacpime}", "password": "${envs.password_contacpime}" }
-      //${envs.app_id_contacpime}`;
+      const requestUrl = `${envs.url_contacpime}/TBasicoGeneral/GetAuth/{"email":"${envs.user_contacpime}", "password": "${envs.password_contacpime}"}//${envs.app_id_contacpime}`;
 
-      const data = await this.doRequest(requestUrl)
+      const data = await this.doRequest(requestUrl);
+
       let keyAgent = null;
-      // validate response
+
       if (data.result) {
         const dataObj = data?.result?.shift();
         if (dataObj.respuesta) {
@@ -103,26 +95,186 @@ export class ContacpimeService {
         }
       }
 
-      // set in cache
       await this.cacheService.setCache('keyagente', keyAgent, 900000);
-
-      // return keyagent
       return keyAgent;
     } catch (error) {
-      this.logger.error(`Error iniciando sesión en contacpime: ${JSON.stringify(error)}`)
+      this.logger.error(
+        `Error iniciando sesión en contacpime: ${JSON.stringify(error)}`,
+      );
       throw new InternalServerErrorException(error.message);
     }
   }
 
   /**
-   * do request
-   * @param { string } url
+   * Load inventory
    */
-  async doRequest(url: string) {
+  async loadInventoryProducts(): Promise<any> {
     try {
-      const request = await fetch(url);
-      const data = await request.json();
-      return data;
+      const requestUrl = `${envs.url_contacpime}/TCatElemInv/"GetListaElemInv"/`;
+
+      let keyagente = await this.cacheService.getCache('keyagente');
+      if (!keyagente) {
+        keyagente = await this.doLogin();
+      }
+
+      this.logger.log(
+        `Cargando página de productos #${this.page} ${
+          this.totalPages > 0 ? `de un total de ${this.totalPages}` : ''
+        }`,
+      );
+
+      const dataJSON = {
+        datospagina: {
+          cantidadregistros: '300',
+          pagina: `${this.page}`,
+        },
+        datosfiltro: {},
+      };
+
+      const JSONSend = {
+        _parameters: [
+          JSON.stringify(dataJSON),
+          keyagente,
+          envs.app_id_contacpime,
+          '0',
+        ],
+      };
+
+      const result = await this.doRequest(requestUrl, {
+        method: 'POST',
+        body: JSONSend,
+      });
+
+      // validamos los resultados
+      if (result?.result && result?.result.length > 0) {
+        const contapymeResponse = result.result.shift();
+        const { paginacion, datos } = contapymeResponse.respuesta;
+        if (paginacion.totalpaginas) {
+          this.totalPages = parseInt(paginacion.totalpaginas);
+        }
+
+        if (datos.length > 0) {
+          const products = prepareProduct(datos);
+
+          // load quantity and prices
+          for (let i = 0; i < products.length; i++) {
+            // validate status active
+            if (parseInt(products[i].msaldo as string) > 0) {
+              products[i].active = false;
+            }
+
+            // load product data
+            const responseProduct = await this.loadProductData(
+              products[i].sku,
+              keyagente,
+            );
+
+            // validate data and set price
+            if (responseProduct && responseProduct.length > 0) {
+              const responseProductObj = responseProduct.shift();
+              const { datos } = responseProductObj.respuesta;
+              const { listaprecios, infobasica } = datos;
+
+              // set price
+              if (listaprecios && listaprecios.length > 0) {
+                const priceList = listaprecios.find((el) => el.ilista === '1');
+                products[i].price = Number(priceList.mprecio);
+              }
+            }
+          }
+          this.products = products;
+        }
+      }
+
+      // validamos la recursividad
+      if (this.page < 1) { // this.totalPages
+        // enable this this.totalPages
+        this.page++;
+        return this.loadInventoryProducts();
+      }
+
+      // reset counters
+      this.page = 1;
+      this.totalPages = 0;
+
+      return {
+        success: true,
+        data: this.products,
+      };
+    } catch (error) {
+      this.logger.error('Error loading inventory products:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * load product data
+   * @param { string } productId
+   */
+  async loadProductData(productId: string, keyagente: string) {
+    const requestUrl = `${envs.url_contacpime}/TCatElemInv/"GetInfoElemInv"/`;
+    const dataJSON = {
+      irecurso: productId,
+    };
+
+    const JSONSend = {
+      _parameters: [
+        JSON.stringify(dataJSON),
+        keyagente,
+        envs.app_id_contacpime,
+        '0',
+      ],
+    };
+
+    const result = await this.doRequest(requestUrl, {
+      method: 'POST',
+      body: JSONSend,
+    });
+
+    return result?.result;
+  }
+
+  /**
+   * General method for GET or POST requests
+   */
+  async doRequest(
+    url: string,
+    options: {
+      method?: 'GET' | 'POST';
+      headers?: Record<string, string>;
+      body?: any;
+    } = {},
+  ): Promise<any> {
+    try {
+      const { method = 'GET', headers = {}, body = null } = options;
+
+      const fetchOptions: RequestInit = {
+        method,
+        headers,
+      };
+
+      if (body) {
+        fetchOptions.body =
+          typeof body === 'string' ? body : JSON.stringify(body);
+
+        if (!headers['Content-Type']) {
+          fetchOptions.headers = {
+            ...headers,
+            'Content-Type': 'application/json',
+          };
+        }
+      }
+
+      const response = await fetch(url, fetchOptions);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     } catch (error) {
       throw new InternalServerErrorException(error.message);
     }

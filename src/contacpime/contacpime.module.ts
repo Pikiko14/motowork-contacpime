@@ -9,5 +9,6 @@ import { ContacpimeController } from './contacpime.controller';
   ],
   controllers: [ContacpimeController],
   providers: [ContacpimeService],
+  exports: [ContacpimeService],
 })
 export class ContacpimeModule {}
