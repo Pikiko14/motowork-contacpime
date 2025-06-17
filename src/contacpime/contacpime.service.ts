@@ -166,39 +166,18 @@ export class ContacpimeService {
             if (parseInt(products[i].msaldo as string) === 0) {
               products[i].active = false;
             }
-
-            // load product data
-            const responseProduct = await this.loadProductData(
-              products[i].sku,
-              keyagente,
-            );
-
-            // validate data and set price
-            if (responseProduct && responseProduct.length > 0) {
-              const responseProductObj = responseProduct.shift();
-              const { datos } = responseProductObj.respuesta;
-              const { listaprecios, infobasica } = datos;
-
-              // set price
-              if (listaprecios && listaprecios.length > 0) {
-                const priceList = listaprecios.find((el) => el.ilista === '1');
-                products[i].price = Number(priceList.mprecio);
-              }
-            }
           }
           this.products = products;
         }
       }
 
-      // validamos la recursividad cambiar por this.totalpages.
-      if (this.page < this.totalPages) { // this.totalPages
+      // validamos la recursividad.
+      if (this.page < 1) {
+        // this.totalPages
         // send to product ms de tyhis products
-        if (this.products.length > 0) {
-          this.logger.log(`Enviando la pagina ${this.page} a MS de productos`);
-          await this.productHttpService.sendProduct(this.products);
-          this.products = [];
-        }
-        
+        await this.sendProductToMs();
+        this.products = [];
+
         // enable this this.totalPages
         this.page++;
 
@@ -208,7 +187,7 @@ export class ContacpimeService {
 
       // send if is last page
       this.logger.log(`Enviando la pagina ${this.page} a MS de productos`);
-      await this.productHttpService.sendProduct(this.products);
+      await this.sendProductToMs();
       this.products = [];
 
       // reset counters
@@ -232,8 +211,14 @@ export class ContacpimeService {
    * load product data
    * @param { string } productId
    */
-  async loadProductData(productId: string, keyagente: string) {
+  async loadProductData(productId: string) {
     const requestUrl = `${envs.url_contacpime}/TCatElemInv/"GetInfoElemInv"/`;
+
+    let keyagente = await this.cacheService.getCache('keyagente');
+    if (!keyagente) {
+      keyagente = await this.doLogin();
+    }
+
     const dataJSON = {
       irecurso: productId,
     };
@@ -253,6 +238,14 @@ export class ContacpimeService {
     });
 
     return result?.result;
+  }
+
+  /**
+   * Send products to MS
+   */
+  async sendProductToMs() {
+    this.logger.log(`Enviando la pagina ${this.page} a MS de productos`);
+    await this.productHttpService.sendProduct(this.products);
   }
 
   /**
