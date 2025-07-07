@@ -30,4 +30,10 @@ export class ContacpimeController {
   getElementInventoryData(@Param('sku') sku: string) {
     return this.contacpimeService.loadProductData(sku);
   }
+
+  @Get('product/:sku/images')
+  @UseGuards(HostGuard)
+  getImage(@Param('sku') sku: string) {
+    return this.contacpimeService.getImage(sku);
+  }
 }

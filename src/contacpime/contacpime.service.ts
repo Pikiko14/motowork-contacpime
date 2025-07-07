@@ -4,7 +4,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import * as path from 'path';
 import { envs } from 'src/config';
+import { writeFile } from 'fs/promises';
 import { GetProductDto } from './dto/get-contacpime.dto';
 import { prepareProduct } from './helpers/products.helper';
 import { IProductMotowork } from './interfaces/products.interface';
@@ -172,8 +174,7 @@ export class ContacpimeService {
       }
 
       // validamos la recursividad.
-      if (this.page < 1) {
-        // this.totalPages
+      if (this.page < this.totalPages) { // this.totalPages
         // send to product ms de tyhis products
         await this.sendProductToMs();
         this.products = [];
@@ -241,6 +242,21 @@ export class ContacpimeService {
   }
 
   /**
+   * load product images
+   * @param { string } productId
+   */
+  async getImage(productId: string) {
+    let keyagente = await this.cacheService.getCache('keyagente');
+    if (!keyagente) {
+      keyagente = await this.doLogin();
+    }
+
+    const requestUrl = `${envs.url_contacpime}/TCatElemInv/"GetFotoElemInv"/{"irecurso":"${productId}", "codimg": "1"}/${keyagente}/${envs.app_id_contacpime}`;
+    const result = await this.doRequest(requestUrl);
+    return result;
+  }
+
+  /**
    * Send products to MS
    */
   async sendProductToMs() {
@@ -280,6 +296,23 @@ export class ContacpimeService {
       }
 
       const response = await fetch(url, fetchOptions);
+
+      // validamos si la respuesta es una imagen
+      const contentType = response.headers.get('content-type');
+      if (contentType?.startsWith('image/')) {
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        // Determinar nombre de archivo
+        const nameImg = url.split('{"irecurso":"');
+        const nameImgProduct = nameImg[1].split('", "codimg"');
+        const fileName =`${nameImgProduct[0]}.jpg`;
+
+        const outputPath = path.resolve(__dirname, '../../uploads', fileName);
+        await writeFile(outputPath, buffer);
+
+        return { success: true, message: 'Image downloaded', path: `/uploads/${fileName}` };
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
