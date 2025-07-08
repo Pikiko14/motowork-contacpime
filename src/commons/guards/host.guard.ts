@@ -26,6 +26,8 @@ export class HostGuard implements CanActivate {
       'http://motowork.xyz',
       'http://motowork.co',
       'https://motowork.co',
+      "http://admin.motowork.co",
+      "https://admin.motowork.co"
     ];
 
     const { headers } = context.switchToHttp().getRequest();
