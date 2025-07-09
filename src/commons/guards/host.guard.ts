@@ -31,6 +31,7 @@ export class HostGuard implements CanActivate {
     ];
 
     const { headers } = context.switchToHttp().getRequest();
+    console.log(headers.origin);
     if (envs.app_env === 'production' && !origin.includes(headers.origin)) {
       throw new UnauthorizedException(
         'No puedes acceder a este recurso desde ese host',
