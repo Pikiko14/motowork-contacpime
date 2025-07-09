@@ -131,7 +131,7 @@ export class ContacpimeService {
 
       const dataJSON = {
         datospagina: {
-          cantidadregistros: '500',
+          cantidadregistros: '100',
           pagina: `${this.page}`,
         },
         datosfiltro: {},
@@ -174,7 +174,7 @@ export class ContacpimeService {
       }
 
       // validamos la recursividad.
-      if (this.page < this.totalPages) { // this.totalPages
+      if (this.page < 1) { // this.totalPages
         // send to product ms de tyhis products
         await this.sendProductToMs();
         this.products = [];
